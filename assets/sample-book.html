@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>《一个普通人的一生》· 样例（全部内容为虚构示例）</title>
+<style>
+  /* 本文件是 memoir-book-template.html 的**填充样例**，用于展示成书版式。
+     ★ 书中人物、日期、地名、原话均为虚构占位，不指向任何真实家族。
+     浏览器打开后可 Ctrl+P 另存为 PDF。 */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Songti SC","SimSun","Noto Serif CJK SC",serif; background:#e8e4dc; color:#2a2620; }
+  .page { max-width:720px; margin:0 auto; background:#fbf7ef; padding:80px 72px;
+          box-shadow:0 2px 18px rgba(0,0,0,.12); }
+  @media (max-width:768px){ .page{ padding:48px 26px; } }
+
+  .cover { min-height:88vh; display:flex; flex-direction:column; justify-content:center;
+           align-items:center; text-align:center; border:1px solid #c9bfa8; }
+  .cover .book-title { font-size:42px; letter-spacing:8px; font-weight:700; margin-bottom:28px; }
+  .cover .book-sub { font-size:17px; color:#7a7060; letter-spacing:3px; margin-bottom:60px; }
+  .cover .book-author { font-size:15px; color:#57503f; letter-spacing:2px; line-height:2.4; }
+  .page-break { break-after:page; }
+
+  .dedication { min-height:60vh; display:flex; align-items:center; justify-content:center;
+                text-align:center; font-size:18px; line-height:2.6; color:#57503f;
+                font-style:italic; padding:0 40px; }
+
+  h1.chapter { font-size:26px; letter-spacing:4px; text-align:center; margin:70px 0 10px; }
+  .chapter-mark { text-align:center; color:#a89a7c; font-size:14px; letter-spacing:6px;
+                  margin-bottom:44px; }
+  p.body-p { font-size:16.5px; line-height:2.2; text-indent:2em; margin-bottom:14px;
+             text-align:justify; }
+  p.oral { font-size:16.5px; line-height:2.2; margin:18px 2.2em; color:#4a4232; }
+  .note { font-size:13.5px; color:#8a8272; text-indent:0; }
+  .doubt { font-size:14px; color:#9a5b3c; border-left:3px solid #c9a06a; padding:4px 14px;
+           margin:16px 0; background:#f6efe2; text-indent:0; }
+
+  .appendix h2 { font-size:21px; margin:40px 0 16px; letter-spacing:2px; }
+  .golden-quote { text-align:center; font-size:18px; line-height:2.4; color:#4a4232;
+                  padding:10px 30px; }
+  .colophon { margin-top:90px; text-align:center; font-size:13px; color:#8a8272; line-height:2.2; }
+
+  @media print {
+    body { background:#fff; } .page { box-shadow:none; max-width:none; }
+    .page-break { break-after:page; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<div class="page cover page-break">
+  <div class="book-title">一个普通人的一生</div>
+  <div class="book-sub">沈砚岩　口述</div>
+  <div class="book-author">
+    口述　沈砚岩<br>
+    整理　沈彦舟<br>
+    某年某月
+  </div>
+</div>
+
+<!-- 扉页献词 -->
+<div class="page dedication page-break">
+  谨以此书，献给我的孩子们。<br>
+  你们若想知道自己从哪里来，就翻翻这几页。<br>
+  ——沈砚岩
+</div>
+
+<!-- 序 -->
+<div class="page page-break">
+  <h1 class="chapter">序</h1>
+  <div class="chapter-mark">为什么要记下这些</div>
+  <p class="body-p">父亲今年八十有六，记性一天不如一天。去年冬天他忽然说起小时候跟着大人去镇上卖菜的事，说得极细——走的哪条路、摊子摆在哪、收钱的木匣子搁在什么位置。我才知道，这些事再不记下来，就真的没了。</p>
+  <p class="body-p">起初我问得很笨：「您小时候过得怎么样？」他只答一句「就那样」。后来改成问具体的事——那年挑的是什么、路上歇在哪棵树下、第一回自己收钱是什么时候——他就停不住了。</p>
+  <p class="body-p">这本书里的话，都是他自己的话。凡是他记不清、前后说法不一样的地方，我照原样留着，标出来，没有替他补。</p>
+</div>
+
+<!-- 第一章 -->
+<div class="page page-break">
+  <h1 class="chapter">第一章　跟着担子走</h1>
+  <div class="chapter-mark">某年—某年 · 故乡</div>
+  <p class="body-p">镇子在河那边，走大路要绕，抄近道得从坟地里过。他第一次跟着去是天没亮出的门，挑的是自家种的两筐青菜，扁担压在右肩上，换肩的时候手心全是汗。</p>
+  <p class="body-p">到了镇上，摊子摆在石桥头第二棵槐树下。收钱的木匣子是个旧肥皂箱改的，盖子上挖了一条缝，铜板从缝里塞进去，哗啦一声。</p>
+  <p class="oral">「天没亮就出门，挑着担子走十几里。到了镇上，木匣子往摊位上一放，一天的营生就开始了。」</p>
+  <p class="note">营生：方言，指一天的活计与进项。　抄近道：走小路。</p>
+  <div class="doubt">存疑：关于头一回跟着去镇上的年纪，传主两次讲述不一，一次说九岁，一次说十一岁，待核。</div>
+  <p class="body-p">中午舍不得买吃的，怀里揣着两块冷饼。收摊早的话，能赶上回村的渡船；晚了就走夜路，月亮好的时候不用点灯。</p>
+</div>
+
+<!-- 尾声 -->
+<div class="page page-break">
+  <h1 class="chapter">尾声</h1>
+  <div class="chapter-mark">最想留给你们的话</div>
+  <p class="body-p">问他想给后辈留句什么话，他想了很久，说没什么好留的。后来又自己补了一句。</p>
+  <div class="golden-quote">「我这辈子没做过什么大事，就是把你们几个拉扯大了。这就够了吧。」</div>
+</div>
+
+<!-- 附录 -->
+<div class="page appendix page-break">
+  <h2>附录一　家谱简表</h2>
+  <p class="body-p">甲某（祖父）　配　乙某（祖母）　　<br>　　子：沈砚岩（传主）、丙某　　<br>　　孙：沈彦舟（整理者）</p>
+  <h2>附录二　老照片说明</h2>
+  <p class="body-p">照片一：某年春，传主与家人在自家屋前合影。背面无题字；年代依据服饰样式与屋檐形制推断，待核。<br>照片二：传主青年时期单人照，原件有折痕，已扫描存档，修复副本另存。</p>
+  <h2>附录三　他的话（金句集）</h2>
+  <div class="golden-quote">「日子是过出来的，不是说出来的。」</div>
+  <div class="golden-quote">「你们记得就行，不用记得多好。」</div>
+  <div class="colophon">
+    本书记录一位普通人的一生，所有内容均来自传主口述与家庭资料<br>
+    ★本样例全部内容为虚构示例，人物与事件均不指向任何真实家族<br>
+    数字与实体原件由家人珍藏 · 某年某月初版
+  </div>
+</div>
+
+</body>
+</html>

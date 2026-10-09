@@ -6,6 +6,16 @@
 [![i18n welcome](https://img.shields.io/badge/i18n-contributions%20welcome-orange.svg)](CONTRIBUTING.md)
 [![English](https://img.shields.io/badge/readme-English-blueviolet.svg)](README.en.md)
 
+<p align="center">
+  <img src="docs/preview.png" alt="成品样张：书版式页面" width="780">
+</p>
+
+<p align="center">
+  <sub>成书样张（左：封面　右：正文页）。页内人物、日期、原话<b>均为虚构示例</b>，不指向任何真实家族；
+  右下「存疑」框即本项目核心：<b>记不清的地方照原样留白，不替传主补。</b><br>
+  完整样例见 <a href="assets/sample-book.html">assets/sample-book.html</a>。</sub>
+</p>
+
 > 为父母、长辈或自己写一本「普通人的人生传记」。
 > **AI 不当枪手，当访谈官**——笔是委托人的，AI 只负责提问、追问、整理、提醒核对。
 

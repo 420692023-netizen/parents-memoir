@@ -1,5 +1,16 @@
 # Parents Memoir · 时光家传
 
+<p align="center">
+  <img src="docs/preview.png" alt="Sample book pages" width="780">
+</p>
+
+<p align="center">
+  <sub>Sample output (left: cover, right: a chapter page). All names, dates and quotes
+  shown are <b>fictional</b>. The "存疑 / unverified" box is the point of this project:
+  <b>when memory disagrees with itself, it stays blank — nothing is filled in.</b><br>
+  Full sample: <a href="assets/sample-book.html">assets/sample-book.html</a>.</sub>
+</p>
+
 > Write a real biography of an ordinary person — your parents, a grandparent,
 > or yourself.
 > **The AI works as an interviewer, not a ghostwriter.** The pen stays with the
