@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>《{{书名}}》</title>
+<style>
+  /* 成书版式模板：浏览器打开后 Ctrl+P 可另存为 PDF（A5 或 A4 均可） */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Songti SC","SimSun","Noto Serif CJK SC",serif; background:#e8e4dc; color:#2a2620; }
+  .page { max-width:720px; margin:0 auto; background:#fbf7ef; padding:80px 72px;
+          box-shadow:0 2px 18px rgba(0,0,0,.12); }
+  @media (max-width:768px){ .page{ padding:48px 26px; } }
+
+  /* 封面 */
+  .cover { min-height:88vh; display:flex; flex-direction:column; justify-content:center;
+           align-items:center; text-align:center; border:1px solid #c9bfa8; }
+  .cover .book-title { font-size:42px; letter-spacing:8px; font-weight:700; margin-bottom:28px; }
+  .cover .book-sub { font-size:17px; color:#7a7060; letter-spacing:3px; margin-bottom:60px; }
+  .cover .book-author { font-size:15px; color:#57503f; letter-spacing:2px; line-height:2.4; }
+  .page-break { break-after:page; }
+
+  /* 扉页献词 */
+  .dedication { min-height:60vh; display:flex; align-items:center; justify-content:center;
+                text-align:center; font-size:18px; line-height:2.6; color:#57503f;
+                font-style:italic; padding:0 40px; }
+
+  /* 正文 */
+  h1.chapter { font-size:26px; letter-spacing:4px; text-align:center; margin:70px 0 10px; }
+  .chapter-mark { text-align:center; color:#a89a7c; font-size:14px; letter-spacing:6px;
+                  margin-bottom:44px; }
+  p.body-p { font-size:16.5px; line-height:2.2; text-indent:2em; margin-bottom:14px;
+             text-align:justify; }
+  p.oral { font-size:16.5px; line-height:2.2; margin:18px 2.2em; color:#4a4232; }
+  .note { font-size:13.5px; color:#8a8272; text-indent:0; }
+  .doubt { font-size:14px; color:#9a5b3c; border-left:3px solid #c9a06a; padding:4px 14px;
+           margin:16px 0; background:#f6efe2; text-indent:0; }
+
+  /* 附录 */
+  .appendix h2 { font-size:21px; margin:40px 0 16px; letter-spacing:2px; }
+  .golden-quote { text-align:center; font-size:18px; line-height:2.4; color:#4a4232;
+                  padding:10px 30px; }
+  .colophon { margin-top:90px; text-align:center; font-size:13px; color:#8a8272; line-height:2.2; }
+
+  @media print {
+    body { background:#fff; } .page { box-shadow:none; max-width:none; }
+    .page-break { break-after:page; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<div class="page cover page-break">
+  <div class="book-title">{{书名}}</div>
+  <div class="book-sub">{{副标题，如：一个普通人的一生}}</div>
+  <div class="book-author">
+    口述　{{传主姓名}}<br>
+    整理　{{整理人/团队名}}<br>
+    {{成书年月}}
+  </div>
+</div>
+
+<!-- 扉页献词（可选，传主题给后辈的话） -->
+<div class="page dedication page-break">
+  {{献词，如：谨以此书，献给我的孩子们。——{{传主姓名}}}}
+</div>
+
+<!-- 序言：子女写的"为什么要记" -->
+<div class="page page-break">
+  <h1 class="chapter">序</h1>
+  <div class="chapter-mark">为什么要记下这些</div>
+  <p class="body-p">{{序言正文}}</p>
+</div>
+
+<!-- 正文章节：复制本 block 逐章填充 -->
+<div class="page page-break">
+  <h1 class="chapter">{{第一章　章名}}</h1>
+  <div class="chapter-mark">{{时间坐标，如：1952—1968 · 故乡}}</div>
+  <p class="body-p">{{正文段落，首行缩进自动}}</p>
+  <p class="oral">「{{传主原话直引}}」</p>
+  <p class="note">{{小注：方言或旧物注释，如"夜了个：方言，昨天"}}</p>
+  <div class="doubt">{{存疑段（如保留）：关于进厂年份，传主两次讲述不一，一说1976，一说1978，待核。}}</div>
+</div>
+
+<!-- 尾声 -->
+<div class="page page-break">
+  <h1 class="chapter">尾声</h1>
+  <div class="chapter-mark">最想留给你们的话</div>
+  <p class="body-p">{{尾声正文}}</p>
+  <div class="golden-quote">「{{传主金句}}」</div>
+</div>
+
+<!-- 附录 -->
+<div class="page appendix page-break">
+  <h2>附录一　家谱简表</h2>
+  <p class="body-p">{{家谱简表内容}}</p>
+  <h2>附录二　老照片说明</h2>
+  <p class="body-p">{{照片清单与说明}}</p>
+  <h2>附录三　他的话（金句集）</h2>
+  <div class="golden-quote">「{{金句一}}」</div>
+  <div class="golden-quote">「{{金句二}}」</div>
+  <div class="colophon">
+    本书记录一位普通人的一生，所有内容均来自传主口述与家庭资料<br>
+    数字与实体原件由家人珍藏 · {{成书年月}}初版
+  </div>
+</div>
+
+</body>
+</html>

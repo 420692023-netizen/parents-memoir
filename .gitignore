@@ -1,0 +1,29 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+
+# ── 系统 ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── ★ 隐私红线：真实家族素材一律不得提交 ──
+# 这些是使用者自己的家书、照片、人名档案，与本项目代码无关。
+素材库/
+家传_*/
+raw/
+truth/
+filled/
+校正工作区/
+待校正/
+人名正字总表*.md
+人物登记册*.md
+项目配置.md
+时间线*.md
+访谈录音*/
+*.wav
+*.mp3
+*.mp4
