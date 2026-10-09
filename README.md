@@ -1,5 +1,11 @@
 # 时光家传 · Parents Memoir
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
+[![Dependencies](https://img.shields.io/badge/dependencies-stdlib%20only-brightgreen.svg)](scripts/)
+[![i18n welcome](https://img.shields.io/badge/i18n-contributions%20welcome-orange.svg)](CONTRIBUTING.md)
+[![English](https://img.shields.io/badge/readme-English-blueviolet.svg)](README.en.md)
+
 > 为父母、长辈或自己写一本「普通人的人生传记」。
 > **AI 不当枪手，当访谈官**——笔是委托人的，AI 只负责提问、追问、整理、提醒核对。
 
@@ -108,6 +114,22 @@ parents-memoir/
 
 ---
 
+## 语言与分支（欢迎新增语种）
+
+**方法本身不绑定语言。** 访谈、时间线、存疑标注、照片断代、四层质检——这些在
+任何语言下都成立。真正需要本地化的是**内容**：
+
+- **访谈问题**：必须改写成本国老人真能回答的版本（本国的年代、制度、职业、
+  生活细节）。字面直译出来的问题，本国的老人答不上来。
+- **断代线索**：服饰、器物、发式、建筑——中国年代的速查表要换成你们国家的。
+- **人名规则**：「字辈」是汉人家族的命名习惯，别的文化应替换成自己的命名惯例，
+  不适用就删掉该节并说明。
+
+Canonical 版本是**简体中文**（根目录下 `SKILL.md`）。新增语种请放
+`i18n/<locale>/`，规范见 **[CONTRIBUTING.md](CONTRIBUTING.md)**。
+
+> ⚠️ 我们**不接受访谈问题的字面直译**。为本国老人**重写**问题，才是真正的贡献。
+
 ## 许可证
 
 **MIT**（见 `LICENSE`）。可自由使用、修改、商用与再分发，
@@ -125,3 +147,6 @@ parents-memoir/
 
 本技能是在真实家传整理项目中反复实测、迭代而成，其中的规则（字辈校验、称谓时间轴、
 双哈希查重、时间维度提问）都来自失败复盘。欢迎 Issue 与 PR。
+
+想做点什么？看 **[CONTRIBUTING.md](CONTRIBUTING.md)**：新增语种分支、各国年代
+断代线索表、按职业定制的访谈问题库，都是我们最缺的。
