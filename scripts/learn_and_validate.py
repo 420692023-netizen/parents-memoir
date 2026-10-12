@@ -1,123 +1,145 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""learn_and_validate.py —— 「从人工校对中学习 → 留一法交叉验证 → 量化提升」
+
+通用版：
+  - 优先读取 prepare_pairs.py 生成的 manifest.json；
+  - 没有 manifest 时，按信件编号在 raw/ 与 truth/ 目录自动配对；
+  - 输出 learned_confusion.json（真实混淆表，供 correct.py --confusion 使用）
+    和 validation_report.md（留一法验证报告）。
+
+用法：
+    python learn_and_validate.py
+    python learn_and_validate.py --manifest manifest.json
 """
-learn_and_validate.py —— 「从人工校对中学习 → 留一法交叉验证 → 量化提升」
-
-这才是"识别率提升"的严谨做法：不用任何人第二次看图，
-而是把【已有的一次盲读】当成"OCR 输出"，把【你的校对确认稿】当成"标准答案"，
-从两者的差异里自动学到这个人的字形混淆规律，
-再用**留一法**（每次留一封做测试，其余做训练）证明：
-  用上学到的规律后，同样的盲读稿能被纠正到多少准确率。
-
-输出：
-  learned_confusion.json   学到的混淆规律
-  validation_report.md     逐封验证报告（含提升幅度）
-
-用法:
-  python learn_and_validate.py
-"""
+import argparse
 import json
+import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 import correct as C
+from person_density import letter_code
 
 HERE = Path(__file__).resolve().parent
-DRAFTS = HERE / "drafts"
-REFDIR = HERE / "ref"
-
+RAW_DIR = HERE / "raw"
+TRUTH_DIR = HERE / "truth"
+MANIFEST = HERE / "manifest.json"
 OUT_JSON = HERE / "learned_confusion.json"
 OUT_MD = HERE / "validation_report.md"
 
 
-def load_pairs():
-    """把 drafts 里的盲读稿 与 ref 里同编号的参照稿配对。"""
+def _norm_code(code: str) -> str:
+    return re.sub(r"[-\s_]", "", code).lower()
+
+
+def _auto_pairs():
     pairs = []
-    for p in sorted(DRAFTS.glob("*.txt")):
-        name = p.stem
-        # 提取 信050 / 家书001 之类的编号
-        code = None
-        for token in (r"信0?(\d{3})", r"家书(\d{3})", r"家书第?(\d{2})封"):
-            import re
-            m = re.search(token, name)
-            if m:
-                code = m.group(0)
-                break
-        if not code:
+    truth_files = list(TRUTH_DIR.glob("*")) if TRUTH_DIR.is_dir() else []
+    for p in sorted(RAW_DIR.glob("*")) if RAW_DIR.is_dir() else []:
+        if p.suffix.lower() not in (".txt", ".md"):
             continue
-        # 找参照稿
-        cands = list(REFDIR.glob(f"*{code}*_去标记.md"))
+        code = _norm_code(letter_code(p.name))
+        cands = [t for t in truth_files if code and code in _norm_code(t.stem)]
         if not cands:
             continue
-        pairs.append({
-            "draft": p,
-            "ref": cands[0],
-            "code": code,
-        })
+        # 优先真值命名
+        priority = [t for t in cands if any(k in t.name.lower() for k in ("真值", "truth", "confirmed"))]
+        pairs.append({"code": p.stem, "draft": p, "truth": (priority or cands)[0]})
     return pairs
 
 
+def load_pairs(manifest_path=None):
+    if manifest_path is not None and Path(manifest_path).is_file():
+        data = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        pairs = []
+        for e in data:
+            if e.get("draft") and e.get("truth"):
+                pairs.append({
+                    "code": e.get("code", Path(e["draft"]).stem),
+                    "draft": Path(e["draft"]),
+                    "truth": Path(e["truth"]),
+                })
+        return pairs
+    if MANIFEST.is_file():
+        return load_pairs(MANIFEST)
+    return _auto_pairs()
+
+
 def main():
-    pairs = load_pairs()
+    parser = argparse.ArgumentParser(description="盲测准确率验证与混淆表学习")
+    parser.add_argument("--manifest", default=None, help="prepare_pairs.py 生成的配对清单")
+    args = parser.parse_args()
+
+    pairs = load_pairs(args.manifest)
     if not pairs:
-        # ★ 静默成功比失败更危险：无数据却退出码 0，会让人以为"验证通过"
-        print("!" * 70)
-        print("【无可验证配对】未找到盲读稿（raw）与参照稿（truth）的配对文件。")
-        print("  本脚本用于盲测准确率，需要先有：")
-        print("    raw/   —— 机器盲读输出（未看原件时的识别结果）")
-        print("    truth/ —— 人工校正后的真值")
-        print("  生成方式：先跑 prepare_pairs.py 落盘配对，再跑 learn_and_validate.py。")
-        print("!" * 70)
+        print("!" * 72)
+        print("【无可验证配对】未找到盲读稿与人工真值的配对文件。")
+        print("  请先运行 prepare_pairs.py 生成 raw/ 与 manifest.json，")
+        print("  或把 raw 放 raw/、真值放 truth/。")
+        print("!" * 72)
         sys.exit(2)
 
     print(f"发现 {len(pairs)} 组可验证配对\n")
 
+    # 全量学习真实混淆表，供 correct.py 使用
+    global_table = {}
+    for pr in pairs:
+        raw = pr["draft"].read_text(encoding="utf-8", errors="replace")
+        ref = pr["truth"].read_text(encoding="utf-8", errors="replace")
+        table = C.learn_confusion(
+            C.keep_chars(C.extract_body(raw)),
+            C.keep_chars(C.extract_body(ref)),
+        )
+        for right, wrongs in table.items():
+            dst = global_table.setdefault(right, {})
+            for wrong, n in wrongs.items():
+                dst[wrong] = dst.get(wrong, 0) + n
+
     rows = []
     for i, pr in enumerate(pairs):
         raw = pr["draft"].read_text(encoding="utf-8", errors="replace")
-        ref = pr["ref"].read_text(encoding="utf-8", errors="replace")
+        ref = pr["truth"].read_text(encoding="utf-8", errors="replace")
 
-        # 留一法：用 除自己以外 的所有配对 学混淆表（调用已去环的 learn_confusion）
+        # 留一法：用除自己以外的配对学习混淆表
         table = {}
         for j, other in enumerate(pairs):
             if i == j:
                 continue
             o_raw = other["draft"].read_text(encoding="utf-8", errors="replace")
-            o_ref = other["ref"].read_text(encoding="utf-8", errors="replace")
-            for right, wrongs in C.learn_confusion(
+            o_ref = other["truth"].read_text(encoding="utf-8", errors="replace")
+            learned = C.learn_confusion(
                 C.keep_chars(C.extract_body(o_raw)),
                 C.keep_chars(C.extract_body(o_ref)),
-            ).items():
-                table.setdefault(right, {}).update(
-                    {w: table.get(right, {}).get(w, 0) + n
-                     for w, n in wrongs.items()}
-                )
+            )
+            for right, wrongs in learned.items():
+                dst = table.setdefault(right, {})
+                for wrong, n in wrongs.items():
+                    dst[wrong] = dst.get(wrong, 0) + n
 
         ann, sug, log = C.apply_corrections(
             C.keep_chars(C.extract_body(raw)),
-            C.Counter(), C.Counter(), table,
+            Counter(), Counter(), table,
         )
-        base = C.score(C.keep_chars(C.extract_body(ref)),
-                       C.keep_chars(C.extract_body(raw)))
+        base = C.score(C.keep_chars(C.extract_body(ref)), C.keep_chars(C.extract_body(raw)))
         after = C.score(C.keep_chars(C.extract_body(ref)), sug)
-        rows.append((pr["code"], pr["draft"].name, base, after,
-                     after - base, len(log)))
+        rows.append((pr["code"], pr["draft"].name, base, after, after - base, len(log)))
 
     lines = [
         "# 手写 OCR 纠错引擎 · 留一法交叉验证报告",
         "",
         "> 方法：把已有的【盲读稿】视为 OCR 原始输出，【人工校对确认稿】视为标准答案；",
         "> 每次留出一封做测试，用其余信件学到的字形混淆规律去纠错，计算准确率提升。",
-        "> 这样无需任何人重看图片，结论可复现、可审计。",
         "",
         "| 信件 | 盲读稿 | 基线准确率 | 纠错后准确率 | 提升 | 标记处数 |",
         "|---|---|---:|---:|---:|---:|",
     ]
     tot_b = tot_a = 0.0
     for code, fn, b, a, d, nlog in rows:
-        lines.append(f"| {code} | {fn} | {b:.2f}% | {a:.2f}% | "
-                     f"{d:+.2f}pt | {nlog} |")
-        tot_b += b; tot_a += a
+        lines.append(f"| {code} | {fn} | {b:.2f}% | {a:.2f}% | {d:+.2f}pt | {nlog} |")
+        tot_b += b
+        tot_a += a
     k = len(rows)
     if k:
         lines += [
@@ -129,11 +151,14 @@ def main():
         ]
 
     OUT_MD.write_text("\n".join(lines), encoding="utf-8")
-    with open(OUT_JSON, "w", encoding="utf-8") as f:
-        json.dump({r[0]: r[1] for r in rows}, f, ensure_ascii=False, indent=1)
+    OUT_JSON.write_text(
+        json.dumps(global_table, ensure_ascii=False, indent=1),
+        encoding="utf-8",
+    )
 
     print("\n".join(lines))
-    print(f"\n报告 → {OUT_MD}")
+    print(f"\n混淆表 → {OUT_JSON}")
+    print(f"报告 → {OUT_MD}")
 
 
 if __name__ == "__main__":

@@ -1,48 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-list_photos.py —— 输出「待校正原件照片文件名」清单
+"""list_photos.py —— 输出「待校正原件照片文件名」清单
 
 按 person_density 的优先队列顺序，从每封信的转写稿中抽取
 「原件／原件照片／照片」字段里的 .jpg 文件名，并核对文件是否存在。
+
+所有项目数据在运行时从项目根加载；脚本本身不内置人名、信件编号或照片清单。
 """
+import argparse
+import os
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from person_density import (find_root, extract_body, strip_brackets,
-                            count_known, scan_title_anchor, scan_generation_tpl,
-                            residual_names, detect_writer, load_known, load_corrected,
-                            load_project_config, WRITER_BONUS,
-                            letter_code, KEEP)
-from collections import Counter
-
-ROOT = find_root()
-ZHUANXIE = ROOT / "素材库" / "信件" / "转写"
-DIANBAO = ROOT / "素材库" / "电报" / "转写"
-# 人名库/已校正清单均运行时外置（v5 起脚本不带内置数据）
-KNOWN, FAMILY_SURNAMES = load_known(ROOT)
-CORE = {"妈妈", "父亲", "爸爸", "婆婆", "公公", "外婆", "祖母"}
-CORRECTED = load_corrected(ROOT)
-WRITERS = load_project_config(ROOT)["writers"]
-# 字辈模板：运行时由 --tpl/环境变量注入，留空则该通道关闭（家族内部字辈规则因人而异）
-import os as _os
-TPL_PATTERNS = [p for p in _os.environ.get("PM_TPL", "").split(",") if p.strip()]
-IMG_DIRS = [ROOT / "素材库" / "信件", ROOT / "素材库" / "电报"]
+from person_density import (
+    KEEP,
+    WRITER_BONUS,
+    count_known,
+    detect_writer,
+    extract_body,
+    find_root,
+    letter_code,
+    load_corrected,
+    load_known,
+    load_project_config,
+    residual_names,
+    scan_generation_tpl,
+    scan_title_anchor,
+    strip_brackets,
+)
 
 IMG_RE = re.compile(r"[\w\u4e00-\u9fff\-（）()【】\[\]]{2,}\.(?:jpg|jpeg|png|JPG|JPEG|PNG)")
-
-# 照片字段所在行的提示词
 FIELD_HINT = ("原件", "照片", "扫描", "原图")
+CORE = {"妈妈", "父亲", "爸爸", "婆婆", "公公", "外婆", "祖母"}
 
 
-def build_index():
-    """建立 文件名（小写）→ 绝对路径 索引，覆盖信件/电报目录及其子目录。"""
+def build_index(img_dirs):
+    """建立 文件名（小写）→ 绝对路径 索引，覆盖给定目录及其子目录。"""
     idx = {}
-    for d in IMG_DIRS:
+    for d in img_dirs:
         if not d.exists():
             continue
         for p in d.rglob("*"):
@@ -61,12 +60,7 @@ def pick_photo_lines(md: str):
 
 
 def photos_by_prefix(fname: str, idx: dict):
-    """
-    ★ 更稳的取法：直接按「信件编号前缀」在图片索引里捞。
-    转写稿常写简写名（`p3_原件.jpg`）甚至措辞不一致
-    （`信-027_母亲柳淑贞_1987-04-17` vs 照片 `信27_母亲_1987-04-17_...`），
-    靠文本正则抓取极易漏。按编号前缀捞则不会错。
-    """
+    """按「信件编号前缀」在图片索引里捞。转写稿常写简写名，按前缀捞最稳。"""
     m = re.match(r"^(信|电报)-(\d{3})", fname)
     if not m:
         return []
@@ -76,12 +70,7 @@ def photos_by_prefix(fname: str, idx: dict):
 
 
 def resolve(fn: str, stem: str, idx: dict):
-    """
-    解析照片文件真实路径。转写稿里常写简写名（如 `p3_原件.jpg`），
-    磁盘完整名带信件前缀但**措辞未必一致**（转写稿 `信-027_母亲柳淑贞_1987-04-17`，
-    照片 `信27_母亲_1987-04-17_p3_原件.jpg` —— 少「柳淑贞」）。
-    故三级查找：原名 → 主名+原名 → 编号前缀模糊匹配。
-    """
+    """解析照片文件真实路径：原名 → 主名+原名 → 编号前缀模糊匹配。"""
     hit = idx.get(fn.lower())
     if hit:
         return hit, False
@@ -89,13 +78,11 @@ def resolve(fn: str, stem: str, idx: dict):
         hit = idx.get((stem + fn).lower())
         if hit:
             return hit, True
-    # 编号前缀：信-027 → 信27_
     m = re.match(r"^(信|电报)-(\d{3})", stem or fn)
     if m:
         prefix = f"{m.group(1)}{int(m.group(2))}_"
         cands = [p for k, p in idx.items() if k.startswith(prefix.lower())
                  and p.name.lower().endswith(fn.lower().split("_")[-1])]
-        # 退一步：同前缀且同为 .jpg 即算命中（限于该信页面照）
         if not cands:
             cands = [p for k, p in idx.items() if k.startswith(prefix.lower())]
         if len(cands) == 1:
@@ -106,9 +93,7 @@ def resolve(fn: str, stem: str, idx: dict):
 
 
 def letter_stem(fname: str) -> str:
-    """从转写稿文件名推出原件照片的前缀，如
-    `信-xxx_母亲_某年某月某日.md` → `信xx_母亲_某年某月某日_`
-    """
+    """从转写稿文件名推出原件照片前缀。"""
     base = re.sub(r"\.md$", "", fname)
     m = re.match(r"^(信|电报)-(\d{3})_(.*)$", base)
     if not m:
@@ -116,14 +101,12 @@ def letter_stem(fname: str) -> str:
     return f"{m.group(1)}{int(m.group(2))}_{m.group(3)}_"
 
 
-def main():
-    idx = build_index()
-    files = sorted(ZHUANXIE.glob("信-*.md")) + sorted(DIANBAO.glob("电报-*.md"))
-
+def collect_rows(root, files, known, surnames, corrected, writers, tpl_patterns):
+    """对每封未校正信计算人物密度与校正价值。"""
     rows = []
     for p in files:
         code = letter_code(p.name)
-        if code in CORRECTED:
+        if code in corrected:
             continue
         md = p.read_text(encoding="utf-8", errors="replace")
         body, src = extract_body(md)
@@ -131,41 +114,79 @@ def main():
         if nchars < 30:
             continue
         clean = strip_brackets(body)
-        kd = count_known(clean, KNOWN)
-        pool = Counter(); pool.update(scan_title_anchor(clean, FAMILY_SURNAMES))
-        pool.update(scan_generation_tpl(clean, TPL_PATTERNS, set(KNOWN)))
+        kd = count_known(clean, known)
+        pool = Counter()
+        pool.update(scan_title_anchor(clean, surnames))
+        pool.update(scan_generation_tpl(clean, tpl_patterns, set(known)))
         seen = set(kd) | set(CORE)
         nf = Counter()
         for w, c in pool.items():
-            if any(k in w for k in KNOWN) or w in seen: continue
-            if w in CORE: continue
+            if any(k in w for k in known) or w in seen:
+                continue
+            if w in CORE:
+                continue
             stem = w
-            for t in ("老师","校长","主任","叔叔","舅舅","哥哥","姐姐","同学","同志"):
-                if w.endswith(t): stem = w[:len(w)-len(t)]; break
-            if any(ch in "的了是在不为和有也要就没吗呢吧啊" for ch in stem) or not stem: continue
-            if len(stem) > 2: continue
-            nf[w] = c; seen.add(w)
-        res = residual_names(clean, seen, KNOWN, FAMILY_SURNAMES)
-        bonus = WRITER_BONUS.get(detect_writer(p.name, WRITERS), 0)
+            for t in ("老师", "校长", "主任", "叔叔", "舅舅", "哥哥", "姐姐", "同学", "同志"):
+                if w.endswith(t):
+                    stem = w[: len(w) - len(t)]
+                    break
+            if any(ch in "的了是在不为和有也要就没吗呢吧啊" for ch in stem) or not stem:
+                continue
+            if len(stem) > 2:
+                continue
+            nf[w] = c
+            seen.add(w)
+        res = residual_names(clean, seen, known, surnames)
+        writer = detect_writer(p.name, writers)
+        bonus = WRITER_BONUS.get(writer, 0)
         rows.append({
-            "file": p.name, "md": md, "chars": nchars, "src": src,
-            "writer": detect_writer(p.name, WRITERS),
-            "n_known": len(kd), "n_new": len(nf), "n_res": len(res),
-            "score": len(nf)*3 + len(res) + len(kd) + bonus,
-            "known": kd, "new": nf, "res": res,
+            "file": p.name,
+            "md": md,
+            "chars": nchars,
+            "src": src,
+            "writer": writer,
+            "n_known": len(kd),
+            "n_new": len(nf),
+            "n_res": len(res),
+            "score": len(nf) * 3 + len(res) + len(kd) + bonus,
+            "known": kd,
+            "new": nf,
+            "res": res,
         })
-
     rows.sort(key=lambda r: -r["score"])
+    return rows
+
+
+def main():
+    parser = argparse.ArgumentParser(description="列出待校正信件对应的原件照片文件名")
+    parser.add_argument("--root", default=None, help="项目根路径（含 素材库/信件/转写）")
+    parser.add_argument("--top", type=int, default=15, help="展示前 N 封（默认 15）")
+    parser.add_argument("--tpl", default="", help="字辈模板正则，逗号分隔（可选）")
+    args = parser.parse_args()
+
+    root = Path(args.root).resolve() if args.root else find_root()
+    zhuaxie = root / "素材库" / "信件" / "转写"
+    dianbao = root / "素材库" / "电报" / "转写"
+    img_dirs = [root / "素材库" / "信件", root / "素材库" / "电报"]
+
+    known, surnames = load_known(root)
+    corrected = load_corrected(root)
+    writers = load_project_config(root)["writers"]
+    tpl_patterns = [x for x in args.tpl.split(",") if x.strip()] or [
+        x for x in os.environ.get("PM_TPL", "").split(",") if x.strip()
+    ]
+
+    idx = build_index(img_dirs)
+    files = sorted(zhuaxie.glob("信-*.md")) + sorted(dianbao.glob("电报-*.md"))
+    rows = collect_rows(root, files, known, surnames, corrected, writers, tpl_patterns)
 
     print("=" * 88)
     print("待校正 · 原件照片文件名（按人物密度优先队列排序）")
     print("=" * 88)
 
     missing_all = []
-    for i, r in enumerate(rows[:15], 1):
-        # 优先按编号前缀从磁盘捞；捞不到再退回转写稿里标注的名字
+    for i, r in enumerate(rows[:max(0, args.top)], 1):
         hits = photos_by_prefix(r["file"], idx)
-        imgs = []
         if hits:
             imgs = [p.name for p in hits]
             resolved = list(zip(imgs, [True] * len(imgs)))

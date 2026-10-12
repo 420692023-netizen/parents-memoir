@@ -43,7 +43,8 @@ AI_KEYWORDS = [
     "上色", "修图", "修复", "增强", "去噪",
     "enhance", "denoise", "faceai", "sharpen", "upscale", "remaster", "colorize",
 ]
-AI_DIR_HINT = "ai"
+# 目录命中只认完整 AI 关键词；不再用两个字母的 "ai" 子串，
+# 否则 portrait / detail / email 这类普通英文目录会被误判成 AI 加工目录。
 
 DUP_THRESHOLD = 5      # 汉明距离 ≤5 判"疑似重复"（dHash 或 pHash 任一命中）
 SIM_THRESHOLD = 10     # pHash ≤10 判"相似组"（重拍/裁剪/上色候选，仅提示不结论）
@@ -158,8 +159,8 @@ def _is_ai(path: str) -> bool:
     stem = os.path.splitext(os.path.basename(path))[0].lower()
     if any(k in stem for k in AI_KEYWORDS):
         return True
-    # 父目录名含 "ai"（如 02_AI加工版 / 05_AI动态还原）
-    return any(AI_DIR_HINT in p.lower() for p in parts[:-1])
+    # 父目录名命中完整 AI 关键词（如 02_AI加工版 / 05_AI动态还原）
+    return any(any(k in p.lower() for k in AI_KEYWORDS) for p in parts[:-1])
 
 
 def _pair_key(stem: str) -> str:
@@ -203,7 +204,7 @@ REGISTRY_SKELETON = """# 人物登记册（问一次、终身免问）
 
 | 人物 | 首认照片 | 头像裁片 | 确认日期 | 备注 |
 |---|---|---|---|---|
-| （示例）沈彦宁 | 01_原件翻拍/IMG_xxx.jpg（C组·母亲怀抱） | 06_人物头像/彦宁.jpg | 2026-10-08 | 1987年夏收养；示例行，可删 |
+| （示例）示例人物 | 01_原件翻拍/IMG_xxx.jpg（某组·家人合照） | 06_人物头像/某某.jpg | 2026-01-01 | 示例行，可删 |
 """
 
 
@@ -306,20 +307,31 @@ def build_photo_registry(root: str) -> str:
         return (a in ph and b in ph
                 and DUP_THRESHOLD < _hamming(ph[a], ph[b]) <= SIM_THRESHOLD)
 
-    # 并查集：把重复/相似对归并成组（借鉴混合管线 cluster_duplicates）
-    parent = {}
+    # 并查集：重复、相似必须分开聚类，不能共用一个 parent。
+    # 否则 A 与 B 相似、B 与 C 重复时，A/B/C 会被串成一个组件，
+    # 导致「重复组」里混入相似照片、「相似组」里混入重复照片。
+    dup_parent, sim_parent = {}, {}
 
-    def _find(x):
-        parent.setdefault(x, x)
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
+    def _make_find(parent):
+        def _find(x):
+            parent.setdefault(x, x)
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        return _find
 
-    def _union(a, b):
-        ra, rb = _find(a), _find(b)
-        if ra != rb:
-            parent[rb] = ra
+    def _make_union(find_fn, parent):
+        def _union(a, b):
+            ra, rb = find_fn(a), find_fn(b)
+            if ra != rb:
+                parent[rb] = ra
+        return _union
+
+    dup_find = _make_find(dup_parent)
+    sim_find = _make_find(sim_parent)
+    dup_union = _make_union(dup_find, dup_parent)
+    sim_union = _make_union(sim_find, sim_parent)
 
     dup_pairs, sim_pairs = [], []
     keys = [rel for rel, _ in photos if rel in dh or rel in ph]
@@ -327,23 +339,23 @@ def build_photo_registry(root: str) -> str:
         for b in keys[i + 1:]:
             if _dup_pair(a, b):
                 dup_pairs.append((a, b))
-                _union(a, b)
+                dup_union(a, b)
             elif _sim_pair(a, b):
                 sim_pairs.append((a, b))
-                _union(a, b)
+                sim_union(a, b)
 
-    def _groups(pairs):
+    def _groups(pairs, parent, find_fn):
         seen, groups = set(), []
         for a, b in pairs:
             for x in (a, b):
-                r = _find(x)
+                r = find_fn(x)
                 if r not in seen:
                     seen.add(r)
-                    groups.append(sorted(m for m in parent if _find(m) == r))
+                    groups.append(sorted(m for m in parent if find_fn(m) == r))
         return groups
 
-    dup_groups = _groups(dup_pairs)
-    sim_groups = _groups(sim_pairs)
+    dup_groups = _groups(dup_pairs, dup_parent, dup_find)
+    sim_groups = _groups(sim_pairs, sim_parent, sim_find)
 
     # 内容级配对兜底：名字配不上的 AI 副本，用 dHash/pHash 找最相近的原件
     content_pair = {}
@@ -479,7 +491,7 @@ _NAME_RUN_LONG = re.compile(r"[\u4e00-\u9fff]{2,8}")
 # 表头行特征：≥2 个短单元格含表头关键词（防跨表表头被当数据行吞掉）
 _HEADER_KW = ("正字", "误转", "异写", "勿用", "说明", "备注", "籍贯", "排行",
               "人物", "姓名", "出处", "身份", "日期", "待核", "存异", "原词", "写法")
-# 称谓类别名黑名单：称谓随家族史实变化（如 1988-05-22 前"大舅"＝柳世勋、之后＝柳世杰），
+# 称谓类别名黑名单：称谓随家族史实变化（如某日期前"大舅"指某人、之后指另一人），
 # 提示"『大舅』疑为某人之误转"会违反称谓时间轴，一律不作别名提示
 _RELATIVE_RE = re.compile(r"^[大小老二三四五六七八末]?[舅叔伯姑姨爷奶婆爸妈哥弟姐]{1,2}$")
 
@@ -768,7 +780,7 @@ def build_doc_registry(root: str) -> str:
             L.append(f"| `{rel}` | {shown} | {warn} |")
         L += ["",
               "> **红线**：人名提及只说明「该文件里出现过这个名字」，**不代表就是本家同一位人物**"
-              "（重名风险，如『何维舟』与『沈彦舟』）；误转形按正字总表提示更正方向，"
+              "（重名风险，如两位姓名相近但并非同一人）；误转形按正字总表提示更正方向，"
               "**原话照录区不改字**，裁决权归委托人。"]
     L += ["", "## 四、文档清单", "",
           "| # | 文件 | 文本 | 大小 | 提及人名数 |", "|---|---|---|---|---|"]

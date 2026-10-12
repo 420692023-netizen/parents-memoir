@@ -29,14 +29,13 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from person_density import find_root, letter_code, load_corrected, load_known
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent
-ZHUANXIE = ROOT / "素材库" / "信件" / "转写"
 TRUTH = HERE / "truth"
 OUT = HERE / "filled"
-OUT.mkdir(exist_ok=True)
 
 KEEP = re.compile(r"[\u4e00-\u9fff0-9０-９]")
 BLANK_RE = re.compile(r"〔读不出〕|\[\?\]|\[[^\]]{0,8}\?\]")
@@ -47,15 +46,16 @@ def clean(t):
     return re.sub("|".join(NOISE), "", t, flags=re.M)
 
 
-def load_prior():
-    """合并：102 封大语料 + 已校正真值语料。"""
+def load_prior(corpus_path=None, truth_dir=None):
+    """合并：个人大语料 + 已校正真值语料。"""
+    corpus_path = Path(corpus_path) if corpus_path else HERE / "corpus.json"
+    truth_dir = Path(truth_dir) if truth_dir else TRUTH
     cf, bg = Counter(), Counter()
-    p = HERE / "corpus.json"
-    if p.exists():
-        c = json.loads(p.read_text(encoding="utf-8"))
+    if corpus_path.exists():
+        c = json.loads(corpus_path.read_text(encoding="utf-8"))
         cf.update(Counter(c.get("char_freq", {})))
         bg.update(Counter(c.get("bigram", {})))
-    for f in sorted(TRUTH.glob("信*_真值.txt")):
+    for f in sorted(truth_dir.glob("信*_真值.txt")):
         t = "".join(KEEP.findall(BLANK_RE.sub("", clean(
             f.read_text(encoding="utf-8")))))
         cf.update(Counter(t))
@@ -83,7 +83,7 @@ def candidates(m, prev, nxt, topk=5):
             sc += ((bg.get(prev + ch, 0) + 0.5 * uni.get(ch, 1e-7))
                    / (prev_tot.get(prev, 0) + 0.5))
         if nxt:
-            sc += ((bg.get(ch + nxt, 0) + 0.5 * uni.get(nxt, 1e-7))
+            sc += ((bg.get(ch + nxt, 0) + 0.5 * uni.get(ch, 1e-7))
                    / (prev_tot.get(ch, 0) + 0.5))
         scored.append((ch, sc))
     scored.sort(key=lambda x: -x[1])
@@ -92,29 +92,39 @@ def candidates(m, prev, nxt, topk=5):
 
 def load_known_names(root):
     """人名库运行时加载（v6）：与 person_density 同源，不再硬编码任何姓名。"""
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from person_density import load_known
         known, _ = load_known(Path(root))
         return list(known)
-    except Exception as e:                      # 人名库缺失时不阻断主流程
+    except SystemExit as e:                     # 人名库缺失时本脚本不应退出
+        print(f"[提示] 未找到人名库（退出码 {e}）；未登记人名不参与保护名单")
+        return []
+    except Exception as e:                      # 人名库异常时不阻断主流程
         print(f"[提示] 未能加载人名库（{e}）；未登记人名不参与保护名单")
         return []
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="用个人语料库为转写稿空白位生成候选填补建议（只提示、不擅改）")
     ap.add_argument("--letters", nargs="*", default=None,
                     help="只处理指定信（如 信-060）")
     ap.add_argument("--topk", type=int, default=5)
     ap.add_argument("--root", default=None, help="项目根路径（含 素材库/信件/转写）")
+    ap.add_argument("--corpus", default=str(HERE / "corpus.json"),
+                    help="个人语料 corpus.json 路径（默认脚本同目录）")
+    ap.add_argument("--truth-dir", default=str(TRUTH),
+                    help="已校正真值目录（默认脚本同目录 truth/）")
+    ap.add_argument("--out-dir", default=str(HERE / "filled"),
+                    help="建议输出目录（默认脚本同目录 filled/）")
     a = ap.parse_args()
 
-    proj_root = Path(a.root).resolve() if a.root else Path(__file__).resolve().parent
+    global OUT
+    OUT = Path(a.out_dir)
+    OUT.mkdir(parents=True, exist_ok=True)
+    proj_root = Path(a.root).resolve() if a.root else find_root()
     known_names = load_known_names(proj_root)
     print(f"保护名单（不填补）：{len(known_names)} 个人名")
 
-    m = load_prior()
+    m = load_prior(a.corpus, a.truth_dir)
     print(f"先验语料：字种 {len(m['vocab'])}，"
           f"bigram {len(m['bg'])}，总字频 {sum(m['cf'].values()):,}\n")
 
@@ -124,12 +134,11 @@ def main():
         files = [f for f in files
                  if any(tag in f.name for tag in a.letters)]
 
-    # 排除已校正的（那些已是 truth）
-    corrected = {"035", "036", "037", "050"}
-    files = [f for f in files
-             if not any(c in f.name for c in corrected)]
+    # 排除已校正的（那些已是 truth）。编号来自项目配置/校正进度，不做写死。
+    corrected = load_corrected(proj_root)
+    files = [f for f in files if letter_code(f.name) not in corrected]
 
-    print(f"待填补：{len(files)} 封（已排除 4 封已校正信）\n")
+    print(f"待填补：{len(files)} 封（已排除 {len(corrected)} 封已校正信）\n")
 
     summary = []
     for p in files:

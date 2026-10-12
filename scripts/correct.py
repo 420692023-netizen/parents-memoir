@@ -246,6 +246,8 @@ def main():
     ap.add_argument("--in", dest="inp", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--confusion", default=None)
+    ap.add_argument("--corpus", default=str(HERE / "corpus.json"),
+                    help="个人语料 corpus.json 路径（默认脚本同目录）")
     ap.add_argument("--threshold", type=float, default=0.0)
     a = ap.parse_args()
 
@@ -257,7 +259,7 @@ def main():
     if a.confusion and Path(a.confusion).exists():
         confusion = json.loads(Path(a.confusion).read_text(encoding="utf-8"))
 
-    corpus_p = HERE / "corpus.json"
+    corpus_p = Path(a.corpus)
     cf, bg = Counter(), Counter()
     if corpus_p.exists():
         c = json.loads(corpus_p.read_text(encoding="utf-8"))

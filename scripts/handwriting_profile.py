@@ -325,10 +325,15 @@ def cmd_report(args):
     print(f"已确认信件：{len(letters)} 封")
     if letters:
         accs = [x["stats"]["accuracy"] for x in letters if x.get("stats")]
-        print(f"平均准确率：{sum(accs)/len(accs):.2f}%　最高 {max(accs)}%　最低 {min(accs)}%")
+        if accs:
+            print(f"平均准确率：{sum(accs)/len(accs):.2f}%　最高 {max(accs)}%　最低 {min(accs)}%")
+        else:
+            print("平均准确率：暂无有效 stats 数据")
         print("\n逐封明细：")
         for x in sorted(letters, key=lambda y: y.get("date") or ""):
-            s = x["stats"]
+            s = x.get("stats")
+            if not s:
+                continue
             print(f"  {x['letter']:<14}{x.get('date',''):<12}准确率 {s['accuracy']:>6}%　"
                   f"错 {s['substituted']} 漏 {s['missing']} 多 {s['extra']}")
         if len(accs) >= 2:

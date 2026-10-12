@@ -21,7 +21,12 @@ import re
 import sys
 from pathlib import Path
 
-QUOTE_PATTERN = re.compile(r"[“\"「]([^”\"」]{6,120})[”\"」]")
+# 三种引号分别处理，保证开闭引号配对；原先单条正则可能把「内容”」当成同一句。
+QUOTE_PATTERNS = [
+    re.compile(r"“([^”]{6,120})”"),
+    re.compile(r'"([^"]{6,120})"'),
+    re.compile(r"「([^」]{6,120})」"),
+]
 PUNCT = re.compile(r"[\s，。、；：？！…—·“”‘’「」『』（）()《》<>.,;:!?—-]")
 
 
@@ -49,11 +54,12 @@ def trace(manuscript: Path, src_dir: Path, extra_exclude=None):
     text = manuscript.read_text(encoding="utf-8", errors="replace")
     quotes = []
     seen = set()
-    for m in QUOTE_PATTERN.finditer(text):
-        q = m.group(1).strip()
-        if q and q not in seen:
-            seen.add(q)
-            quotes.append(q)
+    for pattern in QUOTE_PATTERNS:
+        for m in pattern.finditer(text):
+            q = m.group(1).strip()
+            if q and q not in seen:
+                seen.add(q)
+                quotes.append(q)
     exclude = {manuscript}
     if extra_exclude:
         exclude.update(extra_exclude)

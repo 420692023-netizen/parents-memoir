@@ -38,12 +38,13 @@ person_density.py —— 家信「人物密度／校正价值」扫描器（v6 �
 用法：
     python person_density.py <项目根路径>
         [--mother 母亲名] [--father 父亲名] [--dear 委托人名]
-        [--tpl 正则1,正则2,...]      # 字辈模板，如 "沈.岩,沈彦.,柳世."
+        [--tpl 正则1,正则2,...]      # 字辈模板，如 "张.华,李建."
     项目根 = 含 素材库/信件/转写 的目录。
 
 纯标准库，只读信件转写目录，产物写到项目根。
 """
 import argparse
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -69,8 +70,11 @@ _ALIAS_STOP_CHARS = set("废误待核置作勿记疑注写旧音笔原话书区�
 # ══════════════════════════════════════════════════════════════
 
 def find_file(root: Path, filename: str) -> Path | None:
-    """在 root 全树找文件（跳过隐藏目录）。"""
-    for dirpath, dirnames, filenames in root.walk():
+    """在 root 全树找文件（跳过隐藏目录）。
+
+    Python 3.9 兼容：Path.walk() 到 3.12 才有，这里统一用 os.walk。
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         if filename in filenames:
             return Path(dirpath) / filename
@@ -368,10 +372,18 @@ def scan_title_anchor(clean: str, surnames: set) -> Counter:
 
 
 def scan_generation_tpl(clean: str, tpl_pats: list, stop: set) -> Counter:
-    """S2：字辈模板（--tpl 参数注入，如 "沈.岩,沈彦."）。家族内部精确信号。"""
+    """S2：字辈模板（--tpl 参数注入，如 "张.华,李建."）。家族内部精确信号。
+
+    非法正则只跳过该条并告警，不让一个拼写错误中断整批扫描。
+    """
     hits = Counter()
     for p in tpl_pats:
-        for m in re.finditer(p, clean):
+        try:
+            pat = re.compile(p)
+        except re.error as e:
+            print(f"[警告] 字辈模板不是合法正则，已跳过：{p!r}（{e}）", file=sys.stderr)
+            continue
+        for m in pat.finditer(clean):
             w = m.group(0)
             if w in stop or w in STOP:
                 continue
